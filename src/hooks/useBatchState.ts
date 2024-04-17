@@ -24,6 +24,7 @@ export const useBatchState = (initial: TGetServerSideProps) => {
     statusCode,
     users,
     pageLoading,
+    setPage,
     setLimit,
     setPageLoading,
     setAllResponses,

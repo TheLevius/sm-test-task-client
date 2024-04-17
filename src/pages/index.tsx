@@ -47,8 +47,18 @@ export const getServerSideProps = (async (ctx: GetServerSidePropsContext): Promi
 }) satisfies GetServerSideProps<TGetServerSideProps>;
 
 export default function Home(props: TGetServerSideProps) {
-  const { page, limit, totalCount, statusCode, users, pageLoading, setPageLoading, setLimit, setAllResponses } =
-    useBatchState(props);
+  const {
+    page,
+    limit,
+    totalCount,
+    statusCode,
+    users,
+    pageLoading,
+    setPageLoading,
+    setPage,
+    setLimit,
+    setAllResponses,
+  } = useBatchState(props);
 
   const router = useRouter();
 
@@ -84,7 +94,7 @@ export default function Home(props: TGetServerSideProps) {
   }, [page, limit]);
 
   useEffect(() => {
-    changePageRequest(1);
+    changePageRequest(page);
   }, [limit]);
 
   if (statusCode !== 200) {
@@ -110,7 +120,10 @@ export default function Home(props: TGetServerSideProps) {
           <Form.Select
             disabled={pageLoading}
             value={limit}
-            onChange={(v) => setLimit(Number(v.target.value))}
+            onChange={(v) => {
+              setPage(1);
+              setLimit(Number(v.target.value));
+            }}
             aria-label="Default select example"
             style={{ marginBottom: "10px", float: "right" }}
           >
