@@ -1,11 +1,13 @@
 import Head from "next/head";
 import { Inter } from "next/font/google";
 import Table from "react-bootstrap/Table";
+import Pagination from "react-bootstrap/Pagination";
 import { Alert, Container } from "react-bootstrap";
 import { GetServerSideProps, GetServerSidePropsContext } from "next";
 import { makeURLWithQuery } from "@/utils/makeURLWithQuery";
 import { availableQueryParams, defaults, makeUsersRequest, usersHostname } from "@/dal/users.api";
 import { useBatchState } from "@/hooks/useBatchState";
+import { makeDisplayPageNumbers } from "@/utils/makeDisplayNumbers";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -26,6 +28,8 @@ export type TGetServerSideProps = {
   totalCount: number;
 };
 
+const makeQueryParams = (page: number, limit: number) => ({ page: String(page), limit: String(limit) });
+
 export const getServerSideProps = (async (ctx: GetServerSidePropsContext): Promise<{ props: TGetServerSideProps }> => {
   const url = makeURLWithQuery(usersHostname, ctx.query, availableQueryParams);
 
@@ -42,6 +46,28 @@ export const getServerSideProps = (async (ctx: GetServerSidePropsContext): Promi
 export default function Home(props: TGetServerSideProps) {
   const { page, limit, totalCount, statusCode, users, pageLoading, setPageLoading, setLimit, setAllResponses } =
     useBatchState(props);
+
+  const totalPages = Math.ceil(totalCount / limit);
+  const displayPageRange = totalPages < 10 ? totalPages : 10;
+  const displayPages = makeDisplayPageNumbers(page, totalPages, displayPageRange);
+
+  const changePageRequest = async (pageNumber: number) => {
+    const queryParams = makeQueryParams(pageNumber, limit);
+    const url = makeURLWithQuery(usersHostname, queryParams, availableQueryParams);
+    try {
+      setPageLoading(true);
+      const data = await makeUsersRequest(url, {
+        page: pageNumber,
+        limit,
+        users,
+        totalCount,
+      });
+      setAllResponses(data);
+    } finally {
+      setPageLoading(false);
+    }
+  };
+
   if (statusCode !== 200) {
     return <Alert variant={"danger"}>Ошибка {statusCode} при загрузке данных</Alert>;
   }
@@ -83,8 +109,28 @@ export default function Home(props: TGetServerSideProps) {
               ))}
             </tbody>
           </Table>
-
-          {/*TODO add pagination*/}
+          <Pagination>
+            <Pagination.First disabled={pageLoading || page === 1} onClick={() => changePageRequest(1)} />
+            <Pagination.Prev disabled={pageLoading || page === 1} onClick={() => changePageRequest(page - 1)} />
+            {displayPages.map((pageNumber) => (
+              <Pagination.Item
+                disabled={pageLoading}
+                onClick={() => changePageRequest(pageNumber)}
+                key={pageNumber}
+                active={pageNumber === page}
+              >
+                {pageNumber}
+              </Pagination.Item>
+            ))}
+            <Pagination.Next
+              disabled={pageLoading || page === totalPages}
+              onClick={() => changePageRequest(page + 1)}
+            />
+            <Pagination.Last
+              disabled={pageLoading || page === totalPages}
+              onClick={() => changePageRequest(totalPages)}
+            />
+          </Pagination>
         </Container>
       </main>
     </>
