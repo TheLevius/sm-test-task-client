@@ -2,12 +2,15 @@ import Head from "next/head";
 import { Inter } from "next/font/google";
 import Table from "react-bootstrap/Table";
 import Pagination from "react-bootstrap/Pagination";
+import Form from "react-bootstrap/Form";
 import { Alert, Container } from "react-bootstrap";
 import { GetServerSideProps, GetServerSidePropsContext } from "next";
 import { makeURLWithQuery } from "@/utils/makeURLWithQuery";
 import { availableQueryParams, defaults, makeUsersRequest, usersHostname } from "@/dal/users.api";
 import { useBatchState } from "@/hooks/useBatchState";
 import { makeDisplayPageNumbers } from "@/utils/makeDisplayNumbers";
+import { useEffect } from "react";
+import { useRouter } from "next/router";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -47,6 +50,8 @@ export default function Home(props: TGetServerSideProps) {
   const { page, limit, totalCount, statusCode, users, pageLoading, setPageLoading, setLimit, setAllResponses } =
     useBatchState(props);
 
+  const router = useRouter();
+
   const totalPages = Math.ceil(totalCount / limit);
   const displayPageRange = totalPages < 10 ? totalPages : 10;
   const displayPages = makeDisplayPageNumbers(page, totalPages, displayPageRange);
@@ -68,6 +73,24 @@ export default function Home(props: TGetServerSideProps) {
     }
   };
 
+  useEffect(() => {
+    router.push(
+      {
+        query: { ...router.query, page, limit },
+      },
+      undefined,
+      { shallow: true }
+    );
+  }, [page, limit]);
+
+  useEffect(() => {
+    changePageRequest(1);
+  }, [limit]);
+
+  if (statusCode !== 200) {
+    return <Alert variant={"danger"}>Ошибка {statusCode} при загрузке данных</Alert>;
+  }
+
   if (statusCode !== 200) {
     return <Alert variant={"danger"}>Ошибка {statusCode} при загрузке данных</Alert>;
   }
@@ -84,7 +107,18 @@ export default function Home(props: TGetServerSideProps) {
       <main className={inter.className}>
         <Container>
           <h1 className={"mb-5"}>Пользователи</h1>
-
+          <Form.Select
+            disabled={pageLoading}
+            value={limit}
+            onChange={(v) => setLimit(Number(v.target.value))}
+            aria-label="Default select example"
+            style={{ marginBottom: "10px", float: "right" }}
+          >
+            <option value="20">20</option>
+            <option value="40">40</option>
+            <option value="100">100</option>
+            <option value="1500">1500</option>
+          </Form.Select>
           <Table striped bordered hover>
             <thead>
               <tr>
