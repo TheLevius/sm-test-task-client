@@ -5,6 +5,7 @@ import { Alert, Container } from "react-bootstrap";
 import { GetServerSideProps, GetServerSidePropsContext } from "next";
 import { makeURLWithQuery } from "@/utils/makeURLWithQuery";
 import { availableQueryParams, defaults, makeUsersRequest, usersHostname } from "@/dal/users.api";
+import { useBatchState } from "@/hooks/useBatchState";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -38,7 +39,9 @@ export const getServerSideProps = (async (ctx: GetServerSidePropsContext): Promi
   return { props: response };
 }) satisfies GetServerSideProps<TGetServerSideProps>;
 
-export default function Home({ statusCode, users }: TGetServerSideProps) {
+export default function Home(props: TGetServerSideProps) {
+  const { page, limit, totalCount, statusCode, users, pageLoading, setPageLoading, setLimit, setAllResponses } =
+    useBatchState(props);
   if (statusCode !== 200) {
     return <Alert variant={"danger"}>Ошибка {statusCode} при загрузке данных</Alert>;
   }
