@@ -1,74 +1,74 @@
 import Head from "next/head";
-import {Inter} from "next/font/google";
+import { Inter } from "next/font/google";
 import Table from "react-bootstrap/Table";
-import {Alert, Container} from "react-bootstrap";
-import {GetServerSideProps, GetServerSidePropsContext} from "next";
+import { Alert, Container } from "react-bootstrap";
+import { GetServerSideProps, GetServerSidePropsContext } from "next";
+import { makeURLWithQuery } from "@/utils/makeURLWithQuery";
+import { availableQueryParams, defaults, makeUsersRequest, usersHostname } from "@/dal/users.api";
 
-const inter = Inter({subsets: ["latin"]});
+const inter = Inter({ subsets: ["latin"] });
 
 type TUserItem = {
-  id: number
-  firstname: string
-  lastname: string
-  email: string
-  phone: string
-  updatedAt: string
-}
+  id: number;
+  firstname: string;
+  lastname: string;
+  email: string;
+  phone: string;
+  updatedAt: string;
+};
 
-type TGetServerSideProps = {
-  statusCode: number
-  users: TUserItem[]
-}
-
+export type TGetServerSideProps = {
+  statusCode: number;
+  users: TUserItem[];
+  page: number;
+  limit: number;
+  totalCount: number;
+};
 
 export const getServerSideProps = (async (ctx: GetServerSidePropsContext): Promise<{ props: TGetServerSideProps }> => {
-  try {
-    const res = await fetch("http://localhost:3000/users", {method: 'GET'})
-    if (!res.ok) {
-      return {props: {statusCode: res.status, users: []}}
-    }
+  const url = makeURLWithQuery(usersHostname, ctx.query, availableQueryParams);
 
-    return {
-      props: {statusCode: 200, users: await res.json()}
-    }
-  } catch (e) {
-    return {props: {statusCode: 500, users: []}}
-  }
-}) satisfies GetServerSideProps<TGetServerSideProps>
+  const defaultsWithCtx = {
+    ...defaults,
+    page: Number(ctx.query?.page) ?? 1,
+    limit: Number(ctx.query?.limit) ?? 20,
+  };
 
+  const response = await makeUsersRequest(url, defaultsWithCtx);
+  return { props: response };
+}) satisfies GetServerSideProps<TGetServerSideProps>;
 
-export default function Home({statusCode, users}: TGetServerSideProps) {
+export default function Home({ statusCode, users }: TGetServerSideProps) {
   if (statusCode !== 200) {
-    return <Alert variant={'danger'}>Ошибка {statusCode} при загрузке данных</Alert>
+    return <Alert variant={"danger"}>Ошибка {statusCode} при загрузке данных</Alert>;
   }
 
   return (
     <>
       <Head>
         <title>Тестовое задание</title>
-        <meta name="description" content="Тестовое задание"/>
-        <meta name="viewport" content="width=device-width, initial-scale=1"/>
-        <link rel="icon" href="/favicon.ico"/>
+        <meta name="description" content="Тестовое задание" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" href="/favicon.ico" />
       </Head>
 
       <main className={inter.className}>
         <Container>
-          <h1 className={'mb-5'}>Пользователи</h1>
+          <h1 className={"mb-5"}>Пользователи</h1>
 
           <Table striped bordered hover>
             <thead>
-            <tr>
-              <th>ID</th>
-              <th>Имя</th>
-              <th>Фамилия</th>
-              <th>Телефон</th>
-              <th>Email</th>
-              <th>Дата обновления</th>
-            </tr>
+              <tr>
+                <th>ID</th>
+                <th>Имя</th>
+                <th>Фамилия</th>
+                <th>Телефон</th>
+                <th>Email</th>
+                <th>Дата обновления</th>
+              </tr>
             </thead>
             <tbody>
-            {
-              users.map((user) => (
+              {users.map((user) => (
                 <tr key={user.id}>
                   <td>{user.id}</td>
                   <td>{user.firstname}</td>
@@ -77,13 +77,11 @@ export default function Home({statusCode, users}: TGetServerSideProps) {
                   <td>{user.email}</td>
                   <td>{user.updatedAt}</td>
                 </tr>
-              ))
-            }
+              ))}
             </tbody>
           </Table>
 
           {/*TODO add pagination*/}
-
         </Container>
       </main>
     </>
