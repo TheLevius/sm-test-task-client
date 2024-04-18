@@ -5,11 +5,10 @@ import Pagination from "react-bootstrap/Pagination";
 import Form from "react-bootstrap/Form";
 import { Alert, Container } from "react-bootstrap";
 import { GetServerSideProps, GetServerSidePropsContext } from "next";
-import { makeURLWithQuery } from "@/utils/makeURLWithQuery";
-import { availableQueryParams, defaults, makeUsersRequest, usersHostname } from "@/dal/users.api";
+import { getContextUsersOffset, getOffsetUsers } from "@/dal/users.api";
 import { useBatchState } from "@/hooks/useBatchState";
 import { makeDisplayPageNumbers } from "@/utils/makeDisplayNumbers";
-import { useEffect } from "react";
+import { ChangeEvent, useEffect, useState } from "react";
 import { useRouter } from "next/router";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -23,61 +22,48 @@ type TUserItem = {
   updatedAt: string;
 };
 
-export type TGetServerSideProps = {
-  statusCode: number;
+export type TGetServerSideProps = UsersOffset & StatusCode;
+export type StatusCode = { statusCode: number };
+export type UsersOffset = {
   users: TUserItem[];
   page: number;
   limit: number;
   totalCount: number;
 };
 
-const makeQueryParams = (page: number, limit: number) => ({ page: String(page), limit: String(limit) });
+const defaultPageRange = 10;
 
 export const getServerSideProps = (async (ctx: GetServerSidePropsContext): Promise<{ props: TGetServerSideProps }> => {
-  const url = makeURLWithQuery(usersHostname, ctx.query, availableQueryParams);
-
-  const defaultsWithCtx = {
-    ...defaults,
-    page: Number(ctx.query?.page) ?? 1,
-    limit: Number(ctx.query?.limit) ?? 20,
-  };
-
-  const response = await makeUsersRequest(url, defaultsWithCtx);
+  const response = await getContextUsersOffset(ctx.query);
   return { props: response };
 }) satisfies GetServerSideProps<TGetServerSideProps>;
 
 export default function Home(props: TGetServerSideProps) {
-  const {
-    page,
-    limit,
-    totalCount,
-    statusCode,
-    users,
-    pageLoading,
-    setPageLoading,
-    setPage,
-    setLimit,
-    setAllResponses,
-  } = useBatchState(props);
-
   const router = useRouter();
 
+  const [pageLoading, setPageLoading] = useState(false);
+  const { page, limit, totalCount, statusCode, users, setAllResponses } = useBatchState(props);
+
   const totalPages = Math.ceil(totalCount / limit);
-  const displayPageRange = totalPages < 10 ? totalPages : 10;
+  const displayPageRange = totalPages < defaultPageRange ? totalPages : defaultPageRange;
   const displayPages = makeDisplayPageNumbers(page, totalPages, displayPageRange);
 
-  const changePageRequest = async (pageNumber: number) => {
-    const queryParams = makeQueryParams(pageNumber, limit);
-    const url = makeURLWithQuery(usersHostname, queryParams, availableQueryParams);
+  const onChangeLimitHandle = async (e: ChangeEvent<HTMLSelectElement>) => {
+    const newLimit = Number(e.target.value);
+    const resetPageNumber = 1;
+    getAndSetUsersOffset(resetPageNumber, newLimit);
+  };
+  const changePage = async (pageNumber: number) => {
+    getAndSetUsersOffset(pageNumber, limit);
+  };
+
+  const getAndSetUsersOffset = async (page: number, limit: number) => {
     try {
       setPageLoading(true);
-      const data = await makeUsersRequest(url, {
-        page: pageNumber,
-        limit,
-        users,
-        totalCount,
-      });
+      const data = await getOffsetUsers(page, limit);
       setAllResponses(data);
+    } catch (err) {
+      console.error(err);
     } finally {
       setPageLoading(false);
     }
@@ -92,14 +78,6 @@ export default function Home(props: TGetServerSideProps) {
       { shallow: true }
     );
   }, [page, limit]);
-
-  useEffect(() => {
-    changePageRequest(page);
-  }, [limit]);
-
-  if (statusCode !== 200) {
-    return <Alert variant={"danger"}>Ошибка {statusCode} при загрузке данных</Alert>;
-  }
 
   if (statusCode !== 200) {
     return <Alert variant={"danger"}>Ошибка {statusCode} при загрузке данных</Alert>;
@@ -120,10 +98,7 @@ export default function Home(props: TGetServerSideProps) {
           <Form.Select
             disabled={pageLoading}
             value={limit}
-            onChange={(v) => {
-              setPage(1);
-              setLimit(Number(v.target.value));
-            }}
+            onChange={onChangeLimitHandle}
             aria-label="Default select example"
             style={{ marginBottom: "10px", float: "right" }}
           >
@@ -157,26 +132,20 @@ export default function Home(props: TGetServerSideProps) {
             </tbody>
           </Table>
           <Pagination>
-            <Pagination.First disabled={pageLoading || page === 1} onClick={() => changePageRequest(1)} />
-            <Pagination.Prev disabled={pageLoading || page === 1} onClick={() => changePageRequest(page - 1)} />
+            <Pagination.First disabled={pageLoading || page === 1} onClick={() => changePage(1)} />
+            <Pagination.Prev disabled={pageLoading || page === 1} onClick={() => changePage(page - 1)} />
             {displayPages.map((pageNumber) => (
               <Pagination.Item
                 disabled={pageLoading}
-                onClick={() => changePageRequest(pageNumber)}
+                onClick={() => changePage(pageNumber)}
                 key={pageNumber}
                 active={pageNumber === page}
               >
                 {pageNumber}
               </Pagination.Item>
             ))}
-            <Pagination.Next
-              disabled={pageLoading || page === totalPages}
-              onClick={() => changePageRequest(page + 1)}
-            />
-            <Pagination.Last
-              disabled={pageLoading || page === totalPages}
-              onClick={() => changePageRequest(totalPages)}
-            />
+            <Pagination.Next disabled={pageLoading || page === totalPages} onClick={() => changePage(page + 1)} />
+            <Pagination.Last disabled={pageLoading || page === totalPages} onClick={() => changePage(totalPages)} />
           </Pagination>
         </Container>
       </main>

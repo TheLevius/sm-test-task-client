@@ -7,7 +7,6 @@ export const useBatchState = (initial: TGetServerSideProps) => {
   const [totalCount, setTotalCount] = useState(initial.totalCount);
   const [statusCode, setStatusCode] = useState(initial.statusCode);
   const [users, setUsers] = useState(initial.users);
-  const [pageLoading, setPageLoading] = useState(false);
 
   const setAllResponses = (newValues: TGetServerSideProps) => {
     setPage(newValues.page);
@@ -23,10 +22,8 @@ export const useBatchState = (initial: TGetServerSideProps) => {
     totalCount,
     statusCode,
     users,
-    pageLoading,
     setPage,
     setLimit,
-    setPageLoading,
     setAllResponses,
   };
 };

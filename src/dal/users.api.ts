@@ -1,8 +1,10 @@
-import { TGetServerSideProps } from "@/pages";
+import { TGetServerSideProps, UsersOffset } from "@/pages";
+import { makeURLWithQuery } from "@/utils/makeURLWithQuery";
+import { ParsedUrlQuery } from "node:querystring";
 
 export const usersHostname = "http://localhost:3000/users";
 
-export const defaults: Omit<TGetServerSideProps, "statusCode"> = {
+export const defaults: UsersOffset = {
   page: 1,
   limit: 20,
   totalCount: 0,
@@ -11,19 +13,39 @@ export const defaults: Omit<TGetServerSideProps, "statusCode"> = {
 
 export const availableQueryParams = ["page", "limit"];
 
-export const makeUsersRequest = async (url: URL, initValues = defaults): Promise<TGetServerSideProps> => {
+export const getContextUsersOffset = async (query: ParsedUrlQuery): Promise<TGetServerSideProps> => {
+  const queryParams = {
+    page: query?.page ?? String(defaults.page),
+    limit: query?.limit ?? String(defaults.limit),
+  };
+  const url = makeURLWithQuery(usersHostname, queryParams, availableQueryParams);
   try {
-    const res = await fetch(url, {
-      method: "GET",
-    });
+    const res = await fetch(url);
 
     if (!res.ok) {
-      return { statusCode: res.status, ...initValues };
+      return { ...defaults, statusCode: res.status };
     }
 
-    const data: Omit<TGetServerSideProps, "statusCode"> = await res.json();
+    const data: UsersOffset = await res.json();
     return { statusCode: res.status, ...data };
   } catch (err) {
-    return { statusCode: 500, ...initValues };
+    console.error(err);
+    return { ...defaults, statusCode: 500 };
+  }
+};
+export const getOffsetUsers = async (page: number, limit: number): Promise<TGetServerSideProps> => {
+  const queryParams = { page: String(page), limit: String(limit) };
+  const url = makeURLWithQuery(usersHostname, queryParams, availableQueryParams);
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new Error(res.statusText);
+    }
+    const data: UsersOffset = await res.json();
+    return { ...data, statusCode: res.status };
+  } catch (err) {
+    console.error(err);
+    throw new Error(err as string);
   }
 };
